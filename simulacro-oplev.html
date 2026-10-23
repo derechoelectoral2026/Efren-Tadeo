@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulacros OPLE Veracruz – Consejos Distritales</title>
+
+<!-- ═══════════════════════════════════════════════════════════
+  CONFIGURACIÓN
+  • BANCO_URL  → URL del JSON con los 150 reactivos (raw de GitHub
+                 o ruta relativa).
+  • TIEMPO_MIN → minutos por simulacro (el examen real: 120).
+  • POR_SESION → reactivos por simulacro (el examen real: 50).
+═══════════════════════════════════════════════════════════════ -->
+<script>
+  const CONFIG = {
+    TITULO:     'Examen de Conocimientos · Consejos Distritales',
+    SUBTITULO:  'OPLE Veracruz · Proceso Electoral Local 2026–2027',
+    BANCO_URL:  'https://raw.githubusercontent.com/derechoelectoral2026/BancosIEEM/main/banco-oplev.json',
+    TIEMPO_MIN: 120,
+    POR_SESION: 50,
+    STORAGE_KEY: 'simulacro_oplev_v1'
+  };
+</script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  :root {
+    --acc:#00695c; --acc2:#00796b; --acc-pale:#e0f2f1; --acc-mid:#80cbc4;
+    --green:#1b5e20; --green-l:#e8f5e9; --green-m:#2e7d32;
+    --red:#b71c1c; --red-l:#ffebee; --red-m:#d32f2f;
+    --g50:#fafafa; --g100:#f5f5f5; --g200:#e6e6e6;
+    --g400:#bdbdbd; --g600:#5f6368; --g800:#333; --g900:#1a1a1a;
+    --bg:#f1f5f4; --card:#fff;
+    --r:16px; --rs:12px; --sh:0 2px 14px rgba(0,0,0,.07);
+  }
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html { font-size:18px; }
+  @media (max-width:520px){ html { font-size:16.5px; } }
+  body { font-family:'DM Sans',system-ui,sans-serif; background:var(--bg); color:var(--g900); min-height:100dvh; line-height:1.6; overflow-x:hidden; }
+
+  .hdr { background:linear-gradient(135deg,#004d40 0%,#00695c 60%,#00897b 100%); color:#fff; padding:12px 18px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:200; box-shadow:0 3px 14px rgba(0,77,64,.35); }
+  .hdr-logo { font-size:1.6rem; }
+  .hdr-text { flex:1; min-width:0; }
+  .hdr h1 { font-family:'Fraunces',serif; font-size:1.05rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hdr p { font-size:.75rem; opacity:.88; }
+  .hdr-right { text-align:right; }
+  .t-lbl { font-size:.62rem; opacity:.8; text-transform:uppercase; letter-spacing:.06em; }
+  .timer { font-family:'Fraunces',serif; font-size:1.7rem; font-weight:800; font-variant-numeric:tabular-nums; line-height:1; }
+  .timer.warn { color:#ffee58; } .timer.danger { color:#ff8a80; animation:blink .7s ease infinite; }
+  @keyframes blink { 50%{opacity:.45} }
+  .prog-wrap { background:#cfe0dc; height:5px; }
+  .prog-bar { height:5px; background:#ffca28; transition:width .4s ease; }
+
+  .main { padding:18px 16px 110px; max-width:880px; margin:0 auto; }
+  .card { background:var(--card); border-radius:var(--r); box-shadow:var(--sh); padding:24px 20px; margin-top:14px; animation:up .35s ease; }
+  @keyframes up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .center { text-align:center; }
+  .hidden { display:none !important; }
+
+  .spinner { width:44px; height:44px; border:4px solid var(--g200); border-top-color:var(--acc); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .err { border-top:5px solid var(--red-m); }
+  .err h3 { color:var(--red); font-family:'Fraunces',serif; margin-bottom:8px; }
+  .err code { background:var(--g100); padding:2px 6px; border-radius:4px; font-size:.8rem; word-break:break-all; }
+  .warn-box { background:#fff8e1; border:1.5px solid #ffcc80; color:#6d4c00; border-radius:var(--rs); padding:10px 14px; font-size:.85rem; margin-top:12px; text-align:left; }
+  .info-box { background:var(--acc-pale); border-left:4px solid var(--acc); color:#004d40; border-radius:0 var(--rs) var(--rs) 0; padding:10px 14px; font-size:.88rem; margin-top:14px; text-align:left; }
+
+  .start h2 { font-family:'Fraunces',serif; font-size:1.65rem; color:var(--acc); line-height:1.2; }
+  .start .sub { color:var(--g600); margin:6px 0 4px; }
+  .sec-title { font-size:.78rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; color:var(--g600); margin:20px 0 10px; text-align:left; }
+  .modes { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .mode { border:2.5px solid var(--g200); border-radius:var(--rs); padding:14px; cursor:pointer; text-align:left; background:#fff; transition:border-color .15s, background .15s; }
+  .mode:hover { border-color:var(--acc-mid); }
+  .mode.sel { border-color:var(--acc); background:var(--acc-pale); }
+  .mode h4 { font-size:1.08rem; color:var(--acc); display:flex; justify-content:space-between; align-items:center; gap:6px; }
+  .mode .meta { font-size:.82rem; color:var(--g600); margin-top:2px; }
+  .mode .last { font-size:.82rem; margin-top:8px; color:var(--g800); }
+  .badge { font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+  .badge.ok { background:var(--green-l); color:var(--green); }
+  .badge.no { background:var(--g100); color:var(--g600); }
+  .mode.full { grid-column:1/-1; }
+  .toggle { display:flex; gap:10px; flex-wrap:wrap; }
+  .tg { flex:1; min-width:220px; border:2.5px solid var(--g200); border-radius:var(--rs); padding:12px 14px; cursor:pointer; text-align:left; background:#fff; }
+  .tg.sel { border-color:var(--acc); background:var(--acc-pale); }
+  .tg b { display:block; font-size:.98rem; }
+  .tg span { font-size:.8rem; color:var(--g600); }
+  .dist { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:6px 16px; text-align:left; font-size:.85rem; }
+  .dist div { display:flex; justify-content:space-between; border-bottom:1px dashed var(--g200); padding:3px 0; }
+  .dist b { color:var(--acc); }
+  .chips { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:16px 0 18px; }
+  .chip { background:var(--acc-pale); color:var(--acc); border-radius:20px; padding:6px 14px; font-size:.85rem; font-weight:600; }
+  .link-btn { background:none; border:none; color:var(--g600); text-decoration:underline; font-size:.8rem; cursor:pointer; margin-top:12px; font-family:inherit; }
+
+  .grid-nav { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
+  .gn { width:30px; height:30px; border-radius:7px; border:1.5px solid var(--g200); background:#fff; font-size:.72rem; font-weight:700; color:var(--g600); cursor:pointer; display:flex; align-items:center; justify-content:center; font-family:inherit; }
+  .gn.done { background:var(--acc-pale); border-color:var(--acc-mid); color:var(--acc); }
+  .gn.cur { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .gn.hit { background:var(--green-l); border-color:var(--green-m); color:var(--green); }
+  .gn.miss { background:var(--red-l); border-color:var(--red-m); color:var(--red); }
+  .gn.cur.hit,.gn.cur.miss { outline:3px solid var(--acc); outline-offset:1px; }
+  .q-meta { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:12px; }
+  .q-tags { display:flex; gap:6px; flex-wrap:wrap; }
+  .tag { padding:4px 11px; border-radius:20px; font-size:.72rem; font-weight:700; }
+  .q-num { font-size:.82rem; color:var(--g600); white-space:nowrap; font-weight:600; }
+  .q-text { font-size:1.15rem; font-weight:600; line-height:1.5; margin-bottom:16px; }
+  .opts { display:flex; flex-direction:column; gap:10px; }
+  .opt { padding:14px; border:2.5px solid var(--g200); border-radius:var(--rs); cursor:pointer; display:flex; align-items:flex-start; gap:12px; font-size:1.02rem; line-height:1.45; background:#fff; transition:border-color .12s, background .12s; }
+  .opt:hover:not(.locked) { border-color:var(--acc-mid); }
+  .opt.sel { border-color:var(--acc); background:var(--acc-pale); }
+  .opt.ok { border-color:var(--green-m); background:var(--green-l); }
+  .opt.bad { border-color:var(--red-m); background:var(--red-l); }
+  .opt.locked { cursor:default; }
+  .lt { min-width:30px; height:30px; border-radius:50%; background:var(--g200); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0; }
+  .opt.sel .lt { background:var(--acc); color:#fff; }
+  .opt.ok .lt { background:var(--green-m); color:#fff; }
+  .opt.bad .lt { background:var(--red-m); color:#fff; }
+  .ico { margin-left:auto; }
+  .expl { margin-top:14px; padding:12px 14px; background:#f1f8e9; border-left:4px solid var(--green-m); border-radius:0 var(--rs) var(--rs) 0; font-size:.95rem; color:var(--g800); }
+  .expl .src { display:block; margin-top:6px; font-size:.82rem; color:var(--acc); font-weight:600; }
+  .confirm { text-align:center; margin-top:14px; }
+
+  .btn { padding:12px 20px; border-radius:var(--rs); border:none; font-family:inherit; font-weight:700; font-size:.95rem; cursor:pointer; min-height:46px; transition:transform .1s, background .15s; }
+  .btn:active { transform:scale(.97); }
+  .btn-p { background:var(--acc); color:#fff; }
+  .btn-p:hover { background:var(--acc2); }
+  .btn-s { background:var(--g200); color:var(--g800); }
+  .btn-g { background:var(--green-m); color:#fff; }
+  .btn-lg { width:100%; padding:16px; font-size:1.05rem; }
+
+  .nav { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--g200); box-shadow:0 -4px 14px rgba(0,0,0,.06); padding:10px 16px; padding-bottom:max(10px,env(safe-area-inset-bottom)); display:flex; justify-content:space-between; align-items:center; gap:10px; z-index:200; }
+  .nav-inf { font-size:.88rem; color:var(--g600); line-height:1.35; }
+  .nav-inf b { color:var(--g900); }
+  .nav-btns { display:flex; gap:8px; }
+
+  .ring { width:136px; height:136px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 auto 14px; font-family:'Fraunces',serif; font-size:2.3rem; color:#fff; line-height:1; }
+  .ring small { font-family:'DM Sans',sans-serif; font-size:.78rem; opacity:.9; margin-top:4px; }
+  .res h2 { font-family:'Fraunces',serif; font-size:1.55rem; }
+  .bk { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin:10px 0 6px; text-align:left; }
+  .bk-item { border:1.5px solid var(--g200); border-radius:var(--rs); padding:10px 12px; }
+  .bk-lbl { font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .bk-sc { font-size:1.05rem; font-weight:700; }
+  .bar { height:6px; background:var(--g200); border-radius:3px; margin-top:6px; }
+  .bar i { display:block; height:6px; border-radius:3px; }
+  .rows { text-align:left; margin-top:6px; }
+  .row { display:flex; align-items:center; gap:10px; font-size:.86rem; padding:5px 0; border-bottom:1px dashed var(--g200); }
+  .row .nm { flex:1; }
+  .row .bar { width:110px; margin:0; flex-shrink:0; }
+  .row .pc { width:70px; text-align:right; font-weight:700; }
+  .res .btn { margin-top:10px; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">🗳️</div>
+  <div class="hdr-text">
+    <h1 id="hdrTitle">Cargando simulacros…</h1>
+    <p id="hdrSub"></p>
+  </div>
+  <div class="hdr-right">
+    <div class="t-lbl">Tiempo</div>
+    <div class="timer" id="timer">--:--</div>
+  </div>
+</div>
+<div class="prog-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
+
+<div class="main">
+  <div id="loadingScreen" class="card center"><div class="spinner"></div><p>Cargando banco de reactivos…</p></div>
+  <div id="errorScreen" class="card center err hidden"></div>
+  <div id="startScreen" class="card start center hidden"></div>
+  <div id="examScreen" class="hidden"></div>
+  <div id="resultsScreen" class="hidden"></div>
+</div>
+
+<div class="nav hidden" id="navBar"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ESTADO Y UTILIDADES
+// ═══════════════════════════════════════════════════════════
+let BANCO = [], TEMAS = {}, NORMAS = {}, CUOTAS = {};
+let modoSel = null;          // 1 | 2 | 3 | 'mix'
+let estudio = true;
+let Q = [], TOTAL = 0, answers, revealed, current, secondsLeft, timerInterval, finished = false;
+
+const TEMA_COLOR = { "1":"#6a1b9a", "2":"#0d47a1", "3":"#b71c1c", "4":"#00695c" };
+const NORMA_CORTA = {
+  "CPEUM":"Constitución", "LGPP":"Ley de Partidos", "LGIPE":"LGIPE", "RE-INE":"Reglamento de Elecciones",
+  "LGMDE":"Ley de Delitos Electorales", "CODIGO577":"Código Electoral 577", "RSESIONES":"Reglamento de Sesiones",
+  "RINTERIOR":"Reglamento Interior", "RDESIGNACION":"Reglamento de Designación"
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function leerHist() {
+  const vacio = { vistas:{}, res:{} };
+  try { return Object.assign(vacio, JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {}); }
+  catch(e) { return vacio; }
+}
+function guardarHist(h) { try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(h)); } catch(e) {} }
+function nombreModo(m) { return m === 'mix' ? 'Simulacro mixto' : 'Simulacro ' + m; }
+
+// ═══════════════════════════════════════════════════════════
+//  CARGA DEL BANCO
+// ═══════════════════════════════════════════════════════════
+async function cargarBanco() {
+  try {
+    const sep = CONFIG.BANCO_URL.includes('?') ? '&' : '?';
+    const res = await fetch(CONFIG.BANCO_URL + sep + 'v=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    BANCO = (data.preguntas || []).filter(q => q.id && Array.isArray(q.opts) && q.opts.length >= 2 && Number.isInteger(q.correct));
+    if (!BANCO.length) throw new Error('el JSON no tiene reactivos válidos');
+    TEMAS = data.temas || {};
+    NORMAS = data.normas || {};
+    // Cuota por norma = composición del simulacro 1 (igual a la de los demás)
+    BANCO.filter(q => q.simulacro === 1).forEach(q => { CUOTAS[q.norma] = (CUOTAS[q.norma] || 0) + 1; });
+  } catch (err) {
+    document.getElementById('loadingScreen').classList.add('hidden');
+    const e = document.getElementById('errorScreen');
+    e.innerHTML = `<h3>⚠️ No se pudo cargar el banco</h3>
+      <p>${err.message}. Revisa <code>CONFIG.BANCO_URL</code>. Si abres el HTML directo desde tu computadora (file://), el navegador bloquea la lectura del JSON: súbelo a GitHub o usa un servidor local.</p>
+      <p style="margin-top:8px"><code>${CONFIG.BANCO_URL}</code></p>`;
+    e.classList.remove('hidden');
+    return;
+  }
+  const h = leerHist();
+  modoSel = [1, 2, 3].find(n => !h.res[n]) || 'mix';   // propone el siguiente simulacro pendiente
+  pintarInicio();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PANTALLA DE INICIO
+// ═══════════════════════════════════════════════════════════
+function pintarInicio() {
+  const h = leerHist();
+  document.getElementById('hdrTitle').textContent = CONFIG.TITULO;
+  document.getElementById('hdrSub').textContent = CONFIG.SUBTITULO;
+
+  const tarjeta = (m, titulo, meta, full) => {
+    const r = h.res[m];
+    const badge = r ? `<span class="badge ok">✓ ${r.length} intento${r.length > 1 ? 's' : ''}</span>` : `<span class="badge no">Pendiente</span>`;
+    const ult = r ? r[r.length - 1] : null;
+    const mejor = r ? Math.max(...r.map(x => x.cal)) : null;
+    return `<div class="mode ${full ? 'full' : ''} ${modoSel === m ? 'sel' : ''}" onclick="elegirModo(${typeof m === 'number' ? m : `'${m}'`})">
+      <h4><span>${titulo}</span>${badge}</h4>
+      <div class="meta">${meta}</div>
+      ${ult ? `<div class="last">Último: <b>${ult.cal}</b>/100 · Mejor: <b>${mejor}</b>/100 · ${ult.fecha}</div>` : ''}
+    </div>`;
+  };
+  const cuotasTxt = Object.entries(CUOTAS).map(([n, k]) => `<div><span>${NORMA_CORTA[n] || n}</span><b>${k}</b></div>`).join('');
+
+  const s = document.getElementById('startScreen');
+  s.innerHTML = `
+    <h2>${CONFIG.TITULO}</h2>
+    <p class="sub">${CONFIG.SUBTITULO}</p>
+    <div class="chips">
+      <span class="chip">📝 ${CONFIG.POR_SESION} reactivos</span>
+      <span class="chip">⏱️ ${CONFIG.TIEMPO_MIN} minutos</span>
+      <span class="chip">🔤 4 opciones</span>
+      <span class="chip">📊 Calificación 0–100</span>
+    </div>
+
+    <div class="sec-title">1 · Elige el simulacro</div>
+    <div class="modes">
+      ${tarjeta(1, '📘 Simulacro 1', '50 reactivos distintos · todas las leyes')}
+      ${tarjeta(2, '📗 Simulacro 2', '50 reactivos distintos · todas las leyes')}
+      ${tarjeta(3, '📙 Simulacro 3', '50 reactivos distintos · todas las leyes')}
+      ${tarjeta('mix', '🔀 Simulacro mixto', 'Toma 50 de los 150 reactivos con el mismo reparto por ley, priorizando los que menos has visto. Ideal para repasar después de los tres simulacros.', true)}
+    </div>
+
+    <div class="sec-title">2 · Modo</div>
+    <div class="toggle">
+      <div class="tg ${estudio ? 'sel' : ''}" onclick="elegirEstudio(true)"><b>📖 Estudio</b><span>Confirmas cada reactivo y ves la respuesta con su artículo.</span></div>
+      <div class="tg ${!estudio ? 'sel' : ''}" onclick="elegirEstudio(false)"><b>⏱️ Examen</b><span>Como el real: ves la calificación hasta el final.</span></div>
+    </div>
+
+    <div class="sec-title">Reparto por ley en cada simulacro</div>
+    <div class="dist">${cuotasTxt}</div>
+
+    <div class="info-box">📌 En el examen real tienes <b>120 minutos continuos</b> para 50 preguntas de opción múltiple. Por cada consejo distrital pasan a la siguiente etapa los <b>48 puntajes más altos</b> (24 mujeres y 24 hombres).</div>
+
+    <button class="btn btn-p btn-lg" style="margin-top:18px" onclick="startExam()">Comenzar ${nombreModo(modoSel).toLowerCase()} →</button>
+    ${Object.keys(h.res).length ? `<button class="link-btn" onclick="reiniciarHist()">Reiniciar historial y calificaciones</button>` : ''}`;
+
+  ['loadingScreen','resultsScreen','examScreen','navBar'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  s.classList.remove('hidden');
+  clearInterval(timerInterval);
+  document.getElementById('timer').textContent = '--:--';
+  document.getElementById('timer').className = 'timer';
+  document.getElementById('progBar').style.width = '0%';
+  window.scrollTo({ top:0, behavior:'instant' });
+}
+function elegirModo(m) { modoSel = m; pintarInicio(); }
+function elegirEstudio(v) { estudio = v; pintarInicio(); }
+function reiniciarHist() {
+  if (!confirm('¿Borrar el historial de reactivos vistos y las calificaciones?')) return;
+  guardarHist({ vistas:{}, res:{} }); modoSel = 1; pintarInicio();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ARMADO DE LA SESIÓN
+// ═══════════════════════════════════════════════════════════
+function armarSesion(modo) {
+  if (modo !== 'mix') return BANCO.filter(q => q.simulacro === modo);
+  // Mixto: misma cuota por ley; dentro de cada ley, primero los menos vistos
+  const vistas = leerHist().vistas;
+  return Object.entries(CUOTAS).flatMap(([norma, k]) => {
+    const pool = shuffle(BANCO.filter(q => q.norma === norma));
+    pool.sort((a, b) => (vistas[a.id] || 0) - (vistas[b.id] || 0));
+    return pool.slice(0, k);
+  });
+}
+function barajarOpciones(q) {
+  const idx = shuffle([...q.opts.keys()]);
+  return { ...q, opts: idx.map(i => q.opts[i]), correct: idx.indexOf(q.correct) };
+}
+
+function startExam(repetir) {
+  const base = repetir && Q.length ? Q.map(q => BANCO.find(b => b.id === q.id)) : armarSesion(modoSel);
+  Q = shuffle(base).map(barajarOpciones);
+  TOTAL = Q.length;
+  answers = new Array(TOTAL).fill(null);
+  revealed = new Array(TOTAL).fill(false);
+  current = 0; finished = false;
+  secondsLeft = CONFIG.TIEMPO_MIN * 60;
+
+  document.getElementById('hdrSub').textContent = `${nombreModo(modoSel)} · ${TOTAL} reactivos · ${estudio ? 'Modo estudio' : 'Modo examen'}`;
+  ['startScreen','resultsScreen'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('examScreen').classList.remove('hidden');
+  pintarNav();
+  renderQ(0);
+  startTimer();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDERIZADO
+// ═══════════════════════════════════════════════════════════
+function renderQ(idx) {
+  current = idx;
+  const q = Q[idx], rev = revealed[idx], sel = answers[idx];
+  const col = TEMA_COLOR[q.tema] || '#00695c';
+
+  const nav = Q.map((_, i) => {
+    let c = 'gn';
+    if (revealed[i]) c += answers[i] === Q[i].correct ? ' hit' : ' miss';
+    else if (answers[i] !== null) c += ' done';
+    if (i === idx) c += ' cur';
+    return `<button class="${c}" onclick="renderQ(${i})">${i + 1}</button>`;
+  }).join('');
+
+  const opts = q.opts.map((o, i) => {
+    let c = 'opt';
+    if (rev) { c += ' locked'; if (i === q.correct) c += ' ok'; else if (i === sel) c += ' bad'; }
+    else if (i === sel) c += ' sel';
+    const ico = rev ? (i === q.correct ? '<span class="ico">✅</span>' : i === sel ? '<span class="ico">❌</span>' : '') : '';
+    return `<div class="${c}" onclick="selectOpt(${i})"><span class="lt">${String.fromCharCode(65 + i)}</span><span style="flex:1">${o}</span>${ico}</div>`;
+  }).join('');
+
+  document.getElementById('examScreen').innerHTML = `
+    <div class="grid-nav">${nav}</div>
+    <div class="card">
+      <div class="q-meta">
+        <div class="q-tags">
+          <span class="tag" style="background:${col}1a;color:${col}">${TEMAS[q.tema] || ''}</span>
+          <span class="tag" style="background:#f1f1f1;color:#444">${NORMA_CORTA[q.norma] || q.norma}</span>
+        </div>
+        <span class="q-num">${idx + 1} / ${TOTAL}</span>
+      </div>
+      <div class="q-text">${q.q}</div>
+      <div class="opts">${opts}</div>
+      ${rev ? `<div class="expl"><b>💡 Explicación:</b> ${q.expl || ''}${q.fuente ? `<span class="src">📘 ${q.fuente}</span>` : ''}</div>` : ''}
+      ${estudio && !rev && sel !== null ? `<div class="confirm"><button class="btn btn-g" onclick="revealAnswer()">Confirmar y ver respuesta</button></div>` : ''}
+    </div>`;
+
+  actualizarNav();
+  document.getElementById('progBar').style.width = (answers.filter(a => a !== null).length / TOTAL * 100) + '%';
+  window.scrollTo({ top:0, behavior:'instant' });
+}
+function selectOpt(i) { if (revealed[current]) return; answers[current] = i; renderQ(current); }
+function revealAnswer() { revealed[current] = true; renderQ(current); }
+function nextQ() {
+  if (current < TOTAL - 1) return renderQ(current + 1);
+  if (finished) return showResults();
+  const pend = answers.filter(a => a === null).length;
+  if (pend && !confirm(`Tienes ${pend} reactivo(s) sin responder. ¿Deseas finalizar?`)) return;
+  showResults();
+}
+function prevQ() { if (current > 0) renderQ(current - 1); }
+
+function pintarNav() {
+  const n = document.getElementById('navBar');
+  n.innerHTML = `<div class="nav-inf" id="navInf"></div>
+    <div class="nav-btns">
+      <button class="btn btn-s" onclick="prevQ()">← Ant.</button>
+      <button class="btn btn-p" id="btnNext" onclick="nextQ()">Sig. →</button>
+      ${finished ? `<button class="btn btn-s" onclick="showResults()" title="Volver a resultados">✖</button>` : ''}
+    </div>`;
+  n.classList.remove('hidden');
+}
+function actualizarNav() {
+  const resp = answers.filter(a => a !== null).length;
+  const hits = Q.filter((q, i) => revealed[i] && answers[i] === q.correct).length;
+  const extra = finished
+    ? (answers[current] === Q[current].correct ? '<span style="color:var(--green)">✅ Correcta</span>' : '<span style="color:var(--red)">❌ Incorrecta</span>')
+    : (estudio ? `Aciertos: <b>${hits}</b>` : `Respondidas: <b>${resp}</b>`);
+  document.getElementById('navInf').innerHTML = `${finished ? 'Revisión' : 'Reactivo'} <b>${current + 1}</b> de <b>${TOTAL}</b><br>${extra}`;
+  document.getElementById('btnNext').textContent = current === TOTAL - 1 ? (finished ? 'Resultados' : '🏁 Finalizar') : 'Sig. →';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CRONÓMETRO
+// ═══════════════════════════════════════════════════════════
+function pintarTimer() {
+  const m = Math.floor(secondsLeft / 60), s = secondsLeft % 60;
+  const el = document.getElementById('timer');
+  el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+  el.className = 'timer' + (secondsLeft <= 300 ? ' danger' : secondsLeft <= 900 ? ' warn' : '');
+}
+function startTimer() {
+  clearInterval(timerInterval); pintarTimer();
+  timerInterval = setInterval(() => {
+    secondsLeft--; pintarTimer();
+    if (secondsLeft <= 0) { alert('⏰ Se terminó el tiempo.'); showResults(); }
+  }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RESULTADOS
+// ═══════════════════════════════════════════════════════════
+function showResults() {
+  clearInterval(timerInterval);
+  const primeraVez = !finished;
+  finished = true;
+  const ok = i => answers[i] === Q[i].correct;
+  const hits = Q.filter((_, i) => ok(i)).length;
+  const cal = Math.round(hits / TOTAL * 100);
+  const usados = CONFIG.TIEMPO_MIN * 60 - secondsLeft;
+
+  if (primeraVez) {
+    const h = leerHist();
+    Q.forEach(q => { h.vistas[q.id] = (h.vistas[q.id] || 0) + 1; });
+    (h.res[modoSel] = h.res[modoSel] || []).push({ cal, fecha: new Date().toLocaleDateString('es-MX') });
+    guardarHist(h);
+  }
+
+  const bloque = (lbl, color, a, t) => {
+    const p = t ? Math.round(a / t * 100) : 0;
+    return `<div class="bk-item"><div class="bk-lbl" style="color:${color}">${lbl}</div>
+      <div class="bk-sc" style="color:${color}">${a}/${t} <small style="font-weight:400;color:#5f6368">(${p}%)</small></div>
+      <div class="bar"><i style="width:${p}%;background:${color}"></i></div></div>`;
+  };
+  const porTema = Object.keys(TEMAS).map(t => {
+    const idx = Q.map((q, i) => q.tema === t ? i : -1).filter(i => i >= 0);
+    return idx.length ? bloque(TEMAS[t], TEMA_COLOR[t], idx.filter(ok).length, idx.length) : '';
+  }).join('');
+  const porNorma = Object.keys(CUOTAS).map(n => {
+    const idx = Q.map((q, i) => q.norma === n ? i : -1).filter(i => i >= 0);
+    if (!idx.length) return '';
+    const a = idx.filter(ok).length, p = Math.round(a / idx.length * 100);
+    const color = p >= 70 ? '#2e7d32' : p >= 50 ? '#ef6c00' : '#c62828';
+    return `<div class="row"><span class="nm">${NORMA_CORTA[n] || n}</span><div class="bar"><i style="width:${p}%;background:${color}"></i></div><span class="pc" style="color:${color}">${a}/${idx.length}</span></div>`;
+  }).join('');
+  const sinResp = answers.filter(a => a === null).length;
+  const sig = typeof modoSel === 'number' && modoSel < 3 ? modoSel + 1 : null;
+  const color = cal >= 80 ? 'linear-gradient(135deg,#1b5e20,#43a047)' : cal >= 60 ? 'linear-gradient(135deg,#e65100,#fb8c00)' : 'linear-gradient(135deg,#b71c1c,#e53935)';
+  const msg = cal >= 80 ? '¡Excelente resultado! 🎉' : cal >= 60 ? 'Buen avance 💪' : 'Sigue practicando 📚';
+
+  document.getElementById('examScreen').classList.add('hidden');
+  document.getElementById('navBar').classList.add('hidden');
+  const r = document.getElementById('resultsScreen');
+  r.innerHTML = `<div class="card res center">
+    <div class="ring" style="background:${color}">${cal}<small>de 100</small></div>
+    <h2>${msg}</h2>
+    <p style="color:#5f6368;margin:4px 0 14px"><b>${hits}</b> aciertos de <b>${TOTAL}</b>${sinResp ? ` · ${sinResp} sin responder` : ''} · ${nombreModo(modoSel)} · tiempo ${Math.floor(usados / 60)} min</p>
+    <div class="sec-title">Por bloque</div><div class="bk">${porTema}</div>
+    <div class="sec-title">Por ley o reglamento</div><div class="rows">${porNorma}</div>
+    <div class="info-box">La selección depende de quedar entre los puntajes más altos de tu consejo distrital: repasa primero las leyes en rojo o naranja.</div>
+    <button class="btn btn-p btn-lg" onclick="reviewAnswers()">📖 Revisar respuestas con su artículo</button>
+    ${sig ? `<button class="btn btn-g btn-lg" onclick="modoSel=${sig};startExam()">➡️ Siguiente: Simulacro ${sig}</button>` : ''}
+    <button class="btn btn-s btn-lg" onclick="startExam(true)">🔁 Repetir este simulacro en otro orden</button>
+    <button class="btn btn-s btn-lg" onclick="pintarInicio()">🏠 Volver al inicio</button>
+  </div>`;
+  r.classList.remove('hidden');
+  document.getElementById('progBar').style.width = '100%';
+  window.scrollTo({ top:0, behavior:'instant' });
+}
+function reviewAnswers() {
+  revealed.fill(true);
+  document.getElementById('resultsScreen').classList.add('hidden');
+  document.getElementById('examScreen').classList.remove('hidden');
+  pintarNav();
+  renderQ(0);
+}
+
+cargarBanco();
+</script>
+</body>
+</html>
